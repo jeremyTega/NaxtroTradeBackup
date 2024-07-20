@@ -39,14 +39,32 @@ const cron = require('node-cron')
 //123456Jeremy##
 // });
 
-cron.schedule('0 * * * *', async () => {
-    try {
-        await axios.get('https://naxtrotrade.onrender.com');
-        console.log('Pinged website to keep it awake');
-    } catch (error) {
-        console.error('Error in cron job:', error.message);
+// cron.schedule('0 * * * *', async () => {
+//     try {
+//         await axios.get('https://naxtrotrade.onrender.com');
+//         console.log('Pinged website to keep it awake');
+//     } catch (error) {
+//         console.error('Error in cron job:', error.message);
 
-        // // Prepare and send the wake-up email only if there's an error
+//         // // Prepare and send the wake-up email only if there's an error
+//         // const subject = "Wake up website";
+//         // const html = wakeUpMail();
+//         // const regEmailData = {
+//         //     email: process.env.WAKE_UP_EMAIL, // Use the environment variable
+//         //     subject,
+//         //     html
+//         // };
+//         // await sendEmail(regEmailData);
+//     }
+// });
+
+// Cron job to ping the website twice every hour (at the start and at the 30-minute mark)
+cron.schedule('0,30 * * * *', async () => {
+    try {
+        await axios.get('https://naxtrotradebackup.onrender.com');
+        console.log('Pinged website to keep it awake');
+
+        // // Prepare and send the wake-up email
         // const subject = "Wake up website";
         // const html = wakeUpMail();
         // const regEmailData = {
@@ -55,8 +73,11 @@ cron.schedule('0 * * * *', async () => {
         //     html
         // };
         // await sendEmail(regEmailData);
+    } catch (error) {
+        console.error('Error in cron job:', error.message);
     }
 });
+
 
 
 
