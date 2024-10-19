@@ -655,6 +655,179 @@ function forgetMail(link){
             </body>
             </html>`;
         };
+
+
+        function withdrawNotificationMail(user, withdrawalRecord, walletAddress, walletName) {
+            return `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Withdrawal Notification</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        text-align: center;
+                        background-color: #000000;
+                        color: #444444;
+                        font-weight: bold;
+                    }
+                    .header {
+                        background-color: black;
+                        padding: 10px 0;
+                        border-top-left-radius: 10px;
+                        border-top-right-radius: 10px;
+                    }
+                    .header img {
+                        width: 150px;
+                        display: block;
+                        margin: 0 auto;
+                    }
+                    .content {
+                        padding: 20px;
+                    }
+                    .withdraw-details {
+                        margin-top: 20px;
+                        text-align: left;
+                    }
+                    .details-row {
+                        margin-bottom: 10px;
+                    }
+                    a {
+                        color: #007bff;
+                        text-decoration: none;
+                    }
+                    a:hover {
+                        text-decoration: underline;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <img src="http://res.cloudinary.com/dsml73vio/image/upload/v1718994053/naxtro_trade%20Logo/c0cabdvxmhulcsq8ra9j.png" alt="NAXTRO TRADE PLUS">
+                </div>
+            
+                <div class="content">
+                    <h1>User Withdrawal Notification</h1>
+                    <p>Withdrawal initiated by ${user.email}:</p>
+                    <p>Username: ${user.userName}</p>
+                    <div class="withdraw-details">
+                        <div class="details-row">
+                            <p><strong>Withdrawal ID:</strong> ${withdrawalRecord.withdrawId}</p>
+                        </div>
+                        <div class="details-row">
+                            <p><strong>Amount:</strong> ${withdrawalRecord.amount} USD</p>
+                        </div>
+                        <div class="details-row">
+                            <p><strong>Wallet Address:</strong> ${walletAddress}</p>
+                        </div>
+                        <div class="details-row">
+                            <p><strong>Wallet Name:</strong> ${walletName}</p>
+                        </div>
+                        <div class="details-row">
+                            <p><strong>Date:</strong> ${withdrawalRecord.createdAt}</p>
+                        </div>
+                    </div>
+                    <p>Thanks,</p>
+                    <p>NAXTRO TRADE PLUS Team</p>
+                </div>
+            </body>
+            </html>
+          `;
+        }
+
+
+        function withdrawalSuccessMail(user, amount, walletAddress, walletName) {
+            return `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Withdrawal Successful</title>
+                <style>
+                    /* Global Styles */
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #f4f4f4; /* Light grey background */
+                        text-align: center;
+                    }
+        
+                    .header {
+                        background-color: #008080; /* Teal background */
+                        padding: 10px;
+                        color: white;
+                        border-top-left-radius: 10px;
+                        border-top-right-radius: 10px;
+                    }
+        
+                    .header img {
+                        width: 120px; /* Adjust the width of the logo */
+                    }
+        
+                    .content {
+                        background-color: white;
+                        padding: 20px;
+                        border-bottom-left-radius: 10px;
+                        border-bottom-right-radius: 10px;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                    }
+        
+                    h1 {
+                        color: #333;
+                    }
+        
+                    p {
+                        font-size: 16px;
+                        color: #555;
+                    }
+        
+                    .details {
+                        margin: 20px 0;
+                        text-align: left;
+                    }
+        
+                    .details p {
+                        margin: 5px 0;
+                    }
+        
+                    .footer {
+                        margin-top: 20px;
+                        font-size: 12px;
+                        color: #777;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <img src="http://res.cloudinary.com/dsml73vio/image/upload/v1718994053/naxtro_trade%20Logo/c0cabdvxmhulcsq8ra9j.png" alt="NAXTRO TRADE PLUS">
+                </div>
+                <div class="content">
+                    <h1>Withdrawal Successful!</h1>
+                    <p>Hello ${user.userName},</p>
+                    <p>Your withdrawal request of <strong>$${amount} USD</strong> has been successfully processed.</p>
+                    <div class="details">
+                        <p><strong>Wallet Name:</strong> ${walletName}</p>
+                        <p><strong>Wallet Address:</strong> ${walletAddress}</p>
+                        <p>You will receive the payment in your wallet within the next 24 hours.</p>
+                    </div>
+                    <p>If you have any concerns, feel free to contact our support team.</p>
+                    <p>Thank you for choosing NAXTRO TRADE PLUS.</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} NAXTRO TRADE PLUS. All Rights Reserved.</p>
+                </div>
+            </body>
+            </html>
+            `;
+        }
+        
+        
         
         
 
@@ -664,6 +837,7 @@ module.exports= {loginNotificationMail,depositMail,userEmailTemplate,
     forgetMail,otpVerifyMail,ticketCreationNotificationMail,
     KycVericationMail,
     moneyDepositNotificationMail,
-    KycRejectMail
+    KycRejectMail,withdrawNotificationMail,
+    withdrawalSuccessMail
     
 }

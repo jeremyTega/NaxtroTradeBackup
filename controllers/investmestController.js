@@ -3,6 +3,8 @@ const investmentModel = require('../models/investmentModel');
 const withdrawalModel = require('../models/witdrawalModel')
 const schedule = require('node-schedule');
 const transationModel = require('../models/transationModel')
+const sendEmail = require('../middlewares/mail')
+const {withdrawNotificationMail, withdrawalSuccessMail } = require ('../utils/mailTemplates')
 
 // // Schedule a job to run every day at midnight
 // const job = schedule.scheduleJob('0 0 * * *', async () => {
@@ -865,10 +867,107 @@ const getTotalBalance = async (req, res) => {
 }; 
 // 
 
+// const withdrawMoney = async (req, res) => {
+//     try {
+//         const { userId } = req.params;
+//         let { usd } = req.body;
+
+//         // Find the user
+//         const user = await userModel.findById(userId);
+      
+//         if (!user) {
+//             return res.status(404).json({ message: 'User not found' });
+//         }
+
+//         // Check if the user has completed KYC
+//         if (!user.kyc.verified) {
+//             return res.status(400).json({ message: 'KYC verification required for withdrawal' });
+//         }
+
+//         // Check if the withdrawal amount exceeds the total balance
+//         if (usd > user.accountBalance) {
+//             return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
+//         }
+
+
+//         // Deduct withdrawal amount from all wallets
+//         const wallets = ['depositWallet', 'intrestWallet', 'referalWallet'];
+
+//         for (let wallet of wallets) {
+//             if (user[wallet] > 0) {
+//                 // Deduct from wallet if balance is not zero
+//                 user[wallet] -= usd;
+//             }
+//         }
+
+//         // Deduct from account balance
+//         user.accountBalance -= usd;
+
+//         // Save the updated user object
+//         await user.save();
+
+   
+//         // Save the updated user object
+//         await user.save();
+
+//         // Generate a random withdrawal number
+//         function generateRandomNumbers() {
+//             const randomNumbers = [];
+//             for (let i = 0; i < 6; i++) {
+//                 randomNumbers.push(Math.floor(Math.random() * 10)); // Generates a random number between 0 and 9
+//             }
+//             const withdrawalNumber = randomNumbers.join(''); // Convert array to string
+//             return `#${withdrawalNumber}`; // Prepend "#" symbol to the ticket number
+//         }
+
+//         // Create a withdrawal record
+//         const withdrawalRecord = new withdrawalModel({
+//             userId: userId,
+//             amount: usd,
+//             withdrawId: generateRandomNumbers(),
+//             timestamp: Date.now()
+//         });
+
+//         // Save the withdrawal record
+//         await withdrawalRecord.save();
+
+//         // Create a transaction record
+//         const depositTransaction = new transationModel({
+//             type: 'withdrawal',
+//             amount: withdrawalRecord.amount,
+//             userId: userId,
+//             ID: withdrawalRecord.withdrawId
+//         });
+//         await depositTransaction.save();
+
+//         const recipients = process.env.loginMails.split(',').filter(email => email.trim() !== ''); // Filter out empty emails
+        
+//         if (recipients.length === 0) {
+//             throw new Error("No recipients defined");
+//         }
+
+//         const html = loginNotificationMail(user, timestamp, ipAddress, userAgent);
+//         const emailData = {
+//             subject: "User Login Notification",
+//             html
+//         };
+
+//         for (const recipient of recipients) {
+//             emailData.email = recipient.trim();
+//             await sendEmail(emailData);
+//         }
+
+
+//         res.status(200).json({ message: 'Withdrawal successful', remainingBalance: user.accountBalance });
+//     } catch (error) {
+//         console.error('Error withdrawing money:', error);
+//         res.status(500).json({ message: 'Internal server error' });
+//     }
+// };
 const withdrawMoney = async (req, res) => {
     try {
         const { userId } = req.params;
-        let { usd } = req.body;
+        const { usd, walletAddress, walletName } = req.body; // Add walletAddress and walletName
 
         // Find the user
         const user = await userModel.findById(userId);
@@ -887,13 +986,10 @@ const withdrawMoney = async (req, res) => {
             return res.status(400).json({ message: 'Insufficient balance for withdrawal' });
         }
 
-
         // Deduct withdrawal amount from all wallets
         const wallets = ['depositWallet', 'intrestWallet', 'referalWallet'];
-
         for (let wallet of wallets) {
             if (user[wallet] > 0) {
-                // Deduct from wallet if balance is not zero
                 user[wallet] -= usd;
             }
         }
@@ -904,18 +1000,13 @@ const withdrawMoney = async (req, res) => {
         // Save the updated user object
         await user.save();
 
-   
-        // Save the updated user object
-        await user.save();
-
         // Generate a random withdrawal number
         function generateRandomNumbers() {
             const randomNumbers = [];
             for (let i = 0; i < 6; i++) {
-                randomNumbers.push(Math.floor(Math.random() * 10)); // Generates a random number between 0 and 9
+                randomNumbers.push(Math.floor(Math.random() * 10));
             }
-            const withdrawalNumber = randomNumbers.join(''); // Convert array to string
-            return `#${withdrawalNumber}`; // Prepend "#" symbol to the ticket number
+            return `#${randomNumbers.join('')}`;
         }
 
         // Create a withdrawal record
@@ -923,7 +1014,9 @@ const withdrawMoney = async (req, res) => {
             userId: userId,
             amount: usd,
             withdrawId: generateRandomNumbers(),
-            timestamp: Date.now()
+            walletAddress, // Save walletAddress
+            walletName, // Save walletName
+            createdAt: Date.now()
         });
 
         // Save the withdrawal record
@@ -938,12 +1031,42 @@ const withdrawMoney = async (req, res) => {
         });
         await depositTransaction.save();
 
+         // Send withdrawal success email to user
+         const userEmailData = {
+            email: user.email,
+            subject: "Withdrawal Successful",
+            html: withdrawalSuccessMail(user, usd, walletAddress, walletName) // Use the user email template
+        };
+        await sendEmail(userEmailData);
+
+
+        // Send email to admin about the withdrawal
+        const recipients = process.env.loginMails.split(',').filter(email => email.trim() !== '');
+        
+        if (recipients.length === 0) {
+            throw new Error("No admin email recipients defined");
+        }
+
+        const emailHtml = withdrawNotificationMail(user, withdrawalRecord, walletAddress, walletName);
+        const emailData = {
+            subject: "Withdrawal Notification",
+            html: emailHtml
+        };
+
+        for (const recipient of recipients) {
+            emailData.email = recipient.trim();
+            await sendEmail(emailData); // Assuming you have a sendEmail function to handle email sending
+        }
+
         res.status(200).json({ message: 'Withdrawal successful', remainingBalance: user.accountBalance });
     } catch (error) {
         console.error('Error withdrawing money:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
+
+
 
 
 const withdrawalHistory = async (req, res) => {
