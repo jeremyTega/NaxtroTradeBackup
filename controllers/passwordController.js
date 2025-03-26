@@ -107,17 +107,17 @@ const resetPassword = async (req, res) => {
       const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, { expiresIn: "20m" });
       const link = `https://www. naxtro-investmentfirm.com/reset_password/${token}`;
   
-      const forgetHtml = forgetMail(link);
-      const mailOptions = {
-        from: process.env.user,
-        to: user.email, // Corrected to use "to" instead of "email"
-        subject: "Password Reset",
-        html: forgetHtml
-      };
+      // const forgetHtml = forgetMail(link);
+      // const mailOptions = {
+      //   from: process.env.user,
+      //   to: user.email, // Corrected to use "to" instead of "email"
+      //   subject: "Password Reset",
+      //   html: forgetHtml
+      // };
   
       
-      // Use nodemailer to send the email...
-      await sendEmail(mailOptions);
+      // // Use nodemailer to send the email...
+      // await sendEmail(mailOptions);
   
       res.status(200).json({ message: "Password reset email sent successfully", token});
     } catch (error) {

